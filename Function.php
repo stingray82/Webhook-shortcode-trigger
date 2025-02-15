@@ -1,4 +1,3 @@
-<?php
 function rup_hbs_webhook_button_shortcode($atts) {
     $allow_no_email = isset($atts['noemail']) && $atts['noemail'] === 'true';
 
@@ -8,30 +7,27 @@ function rup_hbs_webhook_button_shortcode($atts) {
 
     $user = wp_get_current_user();
     $email = isset($atts['email']) ? esc_js($atts['email']) : ($allow_no_email ? '' : esc_js($user->user_email));
-
-    // Get shortcode attributes
     $button_text = isset($atts['text']) ? esc_attr($atts['text']) : 'Send Data';
     $after_text = isset($atts['after_text']) ? esc_attr($atts['after_text']) : 'Sent!';
     $webhook_url = isset($atts['webhook']) ? esc_url($atts['webhook']) : '';
-    $custom_class = isset($atts['class']) ? esc_attr($atts['class']) : ''; // Allow custom class
+    $custom_class = isset($atts['class']) ? esc_attr($atts['class']) : '';
     $debug_enabled = isset($atts['rup-webhook-debug']) && $atts['rup-webhook-debug'] === 'true';
+    $capture_browser = isset($atts['capture-browser']) && $atts['capture-browser'] === 'true';
+    $capture_url = isset($atts['capture-url']) ? esc_attr($atts['capture-url']) : 'none';
 
     if (empty($webhook_url)) {
         return '<p style="color:red;">Error: Webhook URL is missing in the shortcode.</p>';
     }
 
-    // Collect extra parameters dynamically
     $extra_params = [];
     foreach ($atts as $key => $value) {
-        if (!in_array($key, ['text', 'after_text', 'webhook', 'email', 'class', 'rup-webhook-debug', 'noemail'])) {
+        if (!in_array($key, ['text', 'after_text', 'webhook', 'email', 'class', 'rup-webhook-debug', 'capture-browser', 'capture-url', 'noemail'])) {
             $extra_params[$key] = esc_attr($value);
         }
     }
 
-    // Convert extra parameters to JSON
     $extra_params_json = htmlspecialchars(json_encode($extra_params), ENT_QUOTES, 'UTF-8');
-
-    $unique_id = uniqid('rup-hbs-btn_'); // Unique ID for multiple buttons
+    $unique_id = uniqid('rup-hbs-btn_');
 
     ob_start();
     ?>
@@ -40,7 +36,9 @@ function rup_hbs_webhook_button_shortcode($atts) {
         data-webhook="<?php echo $webhook_url; ?>"
         data-after-text="<?php echo esc_attr($after_text); ?>"
         data-extra-params="<?php echo $extra_params_json; ?>"
-        data-debug="<?php echo $debug_enabled ? 'true' : 'false'; ?>">
+        data-debug="<?php echo $debug_enabled ? 'true' : 'false'; ?>"
+        data-capture-browser="<?php echo $capture_browser ? 'true' : 'false'; ?>"
+        data-capture-url="<?php echo $capture_url; ?>">
         <?php echo $button_text; ?>
     </button>
     <p id="response_<?php echo $unique_id; ?>" class="rup-hbs-webhook-response" style="display:none; color:red;"></p>
@@ -50,6 +48,8 @@ function rup_hbs_webhook_button_shortcode($atts) {
         let button = document.getElementById('<?php echo $unique_id; ?>');
         let responseMsg = document.getElementById('response_<?php echo $unique_id; ?>');
         let debugEnabled = button.getAttribute('data-debug') === 'true';
+        let captureBrowser = button.getAttribute('data-capture-browser') === 'true';
+        let captureURL = button.getAttribute('data-capture-url');
 
         if (button) {
             button.addEventListener('click', function () {
@@ -59,10 +59,32 @@ function rup_hbs_webhook_button_shortcode($atts) {
                 let extraParams = button.getAttribute('data-extra-params');
 
                 if (!extraParams) {
-                    extraParams = '{}'; // Ensure it's never null
+                    extraParams = '{}';
                 }
 
                 extraParams = JSON.parse(extraParams);
+
+                // Capture browser parameters if enabled
+                if (captureBrowser) {
+                    extraParams.userAgent = navigator.userAgent;
+                    extraParams.language = navigator.language;
+                    extraParams.screenWidth = window.screen.width;
+                    extraParams.screenHeight = window.screen.height;
+                    extraParams.viewportWidth = window.innerWidth;
+                    extraParams.viewportHeight = window.innerHeight;
+                    extraParams.platform = navigator.platform;
+                }
+
+                // Capture URL parameters if enabled
+                if (captureURL === "individual" || captureURL === "both") {
+                    let urlParams = new URLSearchParams(window.location.search);
+                    urlParams.forEach((value, key) => {
+                        extraParams[`url_${key}`] = value;
+                    });
+                }
+                if (captureURL === "full" || captureURL === "both") {
+                    extraParams.pageURL = window.location.href;
+                }
 
                 if (debugEnabled) {
                     console.log("Extra Params:", extraParams);
@@ -118,30 +140,6 @@ function rup_hbs_webhook_button_shortcode($atts) {
         }
     });
     </script>
-
-    <style>
-        .rup-webhook-button {
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-            background-color: #0073aa;
-            color: white;
-            border: none;
-            border-radius: 5px;
-        }
-
-        .rup-webhook-button:disabled {
-            background-color: #aaa;
-            cursor: not-allowed;
-        }
-
-        .rup-hbs-webhook-response {
-            margin-top: 10px;
-            font-size: 14px;
-            color: red;
-        }
-    </style>
-
     <?php
     return ob_get_clean();
 }
