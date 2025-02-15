@@ -5,7 +5,7 @@ This shortcode allows you to trigger a webhook with customizable parameters from
 
 ## Shortcode Format
 ```html
-[rup_webhook_button text="Button Text" after_text="After Click Text" webhook="YOUR_WEBHOOK_URL" class="custom-css-class" email="override@example.com" param1="value1" param2="value2" rup-webhook-debug="true" noemail="true" capture-url="both" capture-browser="true"]
+[rup_webhook_button text="Button Text" after_text="After Click Text" webhook="YOUR_WEBHOOK_URL" class="custom-css-class" email="override@example.com" param1="value1" param2="value2" rup-webhook-debug="true" noemail="true" capture-url="both" capture-browser="true" method="POST" header1="Authorization: Bearer XYZ123" header2="Custom-Header: TestValue" delay="5000" redirect="https://example.com/success"]
 ```
 
 ## Parameters
@@ -26,6 +26,10 @@ This shortcode allows you to trigger a webhook with customizable parameters from
 | `paramX`  | Additional parameters (`param1`, `param2`, etc.) sent to the webhook as JSON. |
 | `capture-url` | Controls how URL parameters are sent: `individual` (each parameter as its own key-value pair), `full` (entire URL as `pageURL`), or `both` (sends both `individual` parameters and `pageURL`). |
 | `capture-browser` | Set to `true` to include browser details such as user agent, screen size, platform, and language in the webhook payload. |
+| `method` | Defines the HTTP method for the webhook request (`POST`, `GET`, `PUT`, or `DELETE`). Defaults to `POST`. |
+| `headerX` | Custom headers for the webhook request (e.g., `header1="Authorization: Bearer XYZ123"`). |
+| `delay` | Sets a delay (in milliseconds) before sending the webhook request. Default is `0` (no delay). |
+| `redirect` | URL to redirect the user to after a successful webhook trigger. |
 
 ## Example Usage
 ### Basic Button
@@ -33,95 +37,21 @@ This shortcode allows you to trigger a webhook with customizable parameters from
 [rup_webhook_button text="Send Data" after_text="Sent!" webhook="https://example.com/webhook"]
 ```
 
-### Capturing Browser Information
+### Sending a GET Request Instead of POST
 ```html
-[rup_webhook_button text="Capture Browser Info" after_text="Sent!" webhook="https://example.com/webhook" capture-browser="true"]
-```
-**Example Webhook Data:**
-```json
-{
-    "email": "user@example.com",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)...",
-    "language": "en-GB",
-    "screenWidth": 1920,
-    "screenHeight": 1080,
-    "viewportWidth": 1024,
-    "viewportHeight": 768,
-    "platform": "Win32"
-}
+[rup_webhook_button text="Fetch Data" after_text="Fetched!" webhook="https://example.com/api/data" method="GET"]
 ```
 
-### Capturing URL Parameters
-#### Capture URL as Individual Key-Value Pairs
+### Using Custom Headers
 ```html
-[rup_webhook_button text="Capture Individual" after_text="Sent!" webhook="https://example.com/webhook" capture-url="individual"]
-```
-**Example Webhook Data:**
-```json
-{
-    "email": "user@example.com",
-    "url_ref": "google",
-    "url_campaign": "summer"
-}
+[rup_webhook_button text="Secure Request" after_text="Sent!" webhook="https://example.com/api" header1="Authorization: Bearer XYZ123" header2="Custom-Header: Example"]
 ```
 
-#### Capture Full URL
-```html
-[rup_webhook_button text="Capture Full URL" after_text="Sent!" webhook="https://example.com/webhook" capture-url="full"]
-```
-**Example Webhook Data:**
-```json
-{
-    "email": "user@example.com",
-    "pageURL": "https://example.com?ref=google&campaign=summer"
-}
-```
-
-#### Capture Both Individual Parameters and Full URL
-```html
-[rup_webhook_button text="Capture Everything" after_text="Sent!" webhook="https://example.com/webhook" capture-url="both"]
-```
-**Example Webhook Data:**
-```json
-{
-    "email": "user@example.com",
-    "pageURL": "https://example.com?ref=google&campaign=summer",
-    "url_ref": "google",
-    "url_campaign": "summer"
-}
-```
-
-## Webhook Data Format
-When triggered, the webhook receives a `POST` request with the following JSON payload:
-
-### If `noemail="true"` is NOT used:
-```json
-{
-    "email": "user@example.com",
-    "param1": "User123",
-    "param2": "Active",
-    "param3": "Premium"
-}
-```
-
-### If `noemail="true"` is Used:
-```json
-{
-    "param1": "User123",
-    "param2": "Active",
-    "param3": "Premium"
-}
-```
-
-## Debugging & Troubleshooting
+### Debugging & Troubleshooting
 - Enable debugging by adding `rup-webhook-debug="true"` to the shortcode.
 - Debugging logs are stored in `wp-content/debug.log`.
 - Ensure the webhook URL is correct and accepts JSON payloads.
-
-## Notes
-- The button can be placed anywhere on your WordPress site using a shortcode.
-- It works for both logged-in users and guest users (if an email is provided or `noemail="true"` is set).
-- The request is sent via AJAX to avoid page reloads.
+- Ensure the server allows **custom HTTP methods (GET, PUT, DELETE, etc.)** and **custom headers**.
 
 ---
-🚀 **Now you're all set to use and customize the webhook button!** 🚀
+🚀 **Now includes fully working method and headers support!** 🚀
