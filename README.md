@@ -1,10 +1,10 @@
 Webhook Button Shortcode Documentation
 ======================================
 
+ 
+
 Overview
 --------
-
- 
 
 This shortcode allows you to trigger a webhook with customisable parameters from
 a button press. The button is fully stylable via CSS, supports custom text, and
@@ -19,10 +19,12 @@ Shortcode Format
 [rup_webhook_button text="Button Text" after_text="After Click Text" webhook="YOUR_WEBHOOK_URL" class="custom-css-class" email="override@example.com" param1="value1" param2="value2" rup-webhook-debug="true" noemail="true" capture-url="both" capture-browser="true" method="POST" header1="Authorization: isstored:somebearertoken" header2="Custom-Header: TestValue" delay="5000" redirect="https://example.com/success"]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-dd
+ 
 
 Parameters
 ----------
+
+ 
 
 ### Required Parameters
 
@@ -34,18 +36,20 @@ Parameters
 
  
 
-Additional Shortcode
---------------------
+ 
+
+Additional Shortcode(s):
+------------------------
+
+#### `rup_auto_webhook webhook` Shortcode
 
 rup_auto_webhook webhook, works on page load due to the lack of on screen
 feedback, this only fails if there is an issue with web hook which is its
 minimum basic requirements, it will send a blank email to the hook if the user
-isn’t logged in and the word press users email if they are logged in  
-  
+isn’t logged in and the word press users email if they are logged in
+
 Other than this functionality is the same, except there is no need for class,
 text and after_text as there is no screen output.
-
- 
 
 ### Required Parameters
 
@@ -55,11 +59,50 @@ text and after_text as there is no screen output.
 
  
 
+ 
+
 Shortcode Format
 ----------------
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 [rup_webhook_button text="Button Text" after_text="After Click Text" webhook="YOUR_WEBHOOK_URL" class="custom-css-class" email="override@example.com" param1="value1" param2="value2" rup-webhook-debug="true" noemail="true" capture-url="both" capture-browser="true" method="POST" header1="Authorization: isstored:somebearertoken" header2="Custom-Header: TestValue" delay="5000" redirect="https://example.com/success"]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#### `rup_webhook_click` Shortcode
+
+`rup_webhook_click` triggers a webhook when an element (e.g., a button or link)
+is clicked. Unlike `rup_auto_webhook`, this function requires an `element_id` to
+bind the click event to a specific HTML element.
+
+If `noemail="true"` is set, it sends a blank email. Otherwise, it sends the
+logged-in user's email or an `isstored:` value if specified.
+
+ 
+
+**Required Parameters**
+-----------------------
+
+| Parameter    | Description                                                    |
+|--------------|----------------------------------------------------------------|
+| `webhook`    | The URL of the webhook that will receive the request.          |
+| `element_id` | The ID of the HTML element that triggers the webhook on click. |
+
+ 
+
+**Optional Parameters Disabled on this shortcode are as follows:**
+------------------------------------------------------------------
+
+| Parameter  | Description                                                                  |
+|------------|------------------------------------------------------------------------------|
+| `redirect` | Disabled as it could be a link or button with its own link and may conflict. |
+
+ 
+
+Shortcode Format
+----------------
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[rup_webhook_click element_id="my-link" webhook="isstored:webhookurl" class="webhook-button" param1="Value1" param2="123" XXX3="Testing" param4="true" param5="false" param6="SpecialChars!@#$%^&*" param7="AnotherParam" param8="2025-02-15" param9="ExtraData" param10="LongStringExample" param11="ShortText" param12="45.67" param13="SomeID-9876" param14="CustomValue" param15="FinalTest" capture-url="both" capture-browser="true" method="POST" header1="Authorization: isstored:flowmattic" header2="Custom-Header: TestValue" delay="1000" Testing="isstored:secret_value"  email="isstored:storedemail"]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
  
@@ -90,6 +133,8 @@ Admins can define global stored values under `Settings > Webhook Settings`.
 Editors and authors can set personal stored values, but they cannot override
 admin-defined settings.
 
+ 
+
 ### Example Usage with Stored Values
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ html
@@ -100,10 +145,7 @@ admin-defined settings.
 [rup_webhook_button text="Secure Request" after_text="Sent!" webhook="isstored:userWebhook" header1="Authorization: isstored:somebearertoken]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  
 These work with emails, parameters and headers
-
- 
 
  
 
@@ -124,12 +166,12 @@ Debugging & Troubleshooting
 
 -   This will work with bearer authorisation on FlowMattic
 
-  
-Note: I’ve checked POST/ PUT are received and function in FlowMattic, I have
+**Note: I’ve checked POST/ PUT are received and function in FlowMattic, I have
 been able to prove that Delete and get work but have been able to check the
 received information and that the command is received, I don’t have a service to
-check these on.  
+check these on.**
 
+ 
 
 Admin Settings Page
 -------------------
