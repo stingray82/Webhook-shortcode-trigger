@@ -183,3 +183,9 @@ Admin Settings Page
 -   Users (Editors, Authors) can store their own values if admins allow it.
 
 -   Bulk **import/export** of stored settings in JSON format is available.
+
+
+
+Security
+-------------------
+I've hidden the isstored tokens from the front end code this doesn't mean they can't be found by sniffing the headers or the Javascript using browser tools, as with all tokens that are send using the browser there is a chance they will be exposed Please keep this in mind

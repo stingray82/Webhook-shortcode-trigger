@@ -700,3 +700,141 @@ document.addEventListener('DOMContentLoaded', function () {
 } 
 
 add_shortcode('rup_auto_webhook', 'rup_hbs_auto_webhook_shortcode');
+
+
+// ======================================
+// On click Element Trigger - Shortcode
+// ======================================
+
+function rup_hbs_webhook_click_shortcode($atts) {
+    $debug_enabled = isset($atts['rup-webhook-debug']) && $atts['rup-webhook-debug'] === 'true';
+
+    // Load stored settings
+    $stored_settings = get_option('rup_webhook_stored_settings', []);
+
+    // Resolve the webhook URL
+    $webhook_url = resolve_stored_value($atts['webhook'] ?? '', $stored_settings, $debug_enabled);
+
+    if ($debug_enabled) {
+        error_log("Webhook Click Shortcode - Raw Webhook Value: " . print_r($atts['webhook'], true));
+        error_log("Webhook Click Shortcode - Resolved Webhook URL: " . print_r($webhook_url, true));
+    }
+
+    if (empty($webhook_url)) {
+        return '<p style="color: red;">Webhook URL is invalid or missing!</p>';
+    }
+
+    // Process extra parameters and headers correctly
+    $extra_params = [];
+    $headers = [];
+    $email = '';
+
+    foreach ($atts as $key => $value) {
+        if (strpos($key, 'header') === 0) {
+            // Extract and resolve headers
+            $header_value = resolve_stored_value($value, $stored_settings, $debug_enabled);
+            $header_parts = explode(':', $header_value, 2);
+            if (count($header_parts) === 2) {
+                $headers[trim($header_parts[0])] = trim($header_parts[1]);
+            } else {
+                error_log("Invalid header format for $key: $value");
+            }
+        } elseif ($key === 'noemail' && $value === 'true') {
+            $email = ''; // Ensure blank email
+        } elseif ($key === 'email') {
+            $email = resolve_stored_value($value, $stored_settings, $debug_enabled);
+        } elseif (!in_array($key, ['webhook', 'element_id', 'class', 'rup-webhook-debug', 'capture-browser', 'capture-url', 'method', 'delay'])) {
+            $extra_params[$key] = resolve_stored_value($value, $stored_settings, $debug_enabled);
+        }
+    }
+
+    // If email is still empty and user is logged in, use their email
+    if ($email === '' && !isset($atts['noemail']) && is_user_logged_in()) {
+        $email = wp_get_current_user()->user_email;
+    }
+
+    ob_start();
+    ?>
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        let element = document.getElementById("<?php echo esc_js($atts['element_id']); ?>");
+        if (!element) {
+            <?php if ($debug_enabled) : ?>
+                console.error("Element ID '<?php echo esc_js($atts['element_id']); ?>' not found.");
+            <?php endif; ?>
+            return;
+        }
+
+        element.addEventListener("click", function(event) {
+            event.preventDefault();
+            let webhookURL = "<?php echo esc_url($webhook_url); ?>";
+            let debugEnabled = <?php echo json_encode($debug_enabled); ?>;
+            let captureBrowser = <?php echo json_encode(isset($atts['capture-browser']) && $atts['capture-browser'] === 'true'); ?>;
+            let captureURL = <?php echo json_encode($atts['capture-url'] ?? 'none'); ?>;
+            let method = <?php echo json_encode(strtoupper($atts['method'] ?? 'POST')); ?>;
+            let delay = <?php echo intval($atts['delay'] ?? 0); ?>;
+            let extraParams = <?php echo json_encode($extra_params, JSON_UNESCAPED_SLASHES); ?>;
+            let headers = <?php echo json_encode($headers, JSON_UNESCAPED_SLASHES); ?>;
+            let email = "<?php echo esc_js($email); ?>";
+
+            if (captureBrowser) {
+                extraParams['userAgent'] = navigator.userAgent;
+                extraParams['language'] = navigator.language;
+                extraParams['screenWidth'] = window.screen.width;
+                extraParams['screenHeight'] = window.screen.height;
+                extraParams['viewportWidth'] = window.innerWidth;
+                extraParams['viewportHeight'] = window.innerHeight;
+                extraParams['platform'] = navigator.platform;
+            }
+
+            if (captureURL === "individual" || captureURL === "both") {
+                let urlParams = new URLSearchParams(window.location.search);
+                urlParams.forEach((value, key) => {
+                    extraParams["url_" + key] = value;
+                });
+            }
+            if (captureURL === "full" || captureURL === "both") {
+                extraParams['pageURL'] = window.location.href;
+            }
+
+            setTimeout(() => {
+                let formData = new FormData();
+                formData.append("action", "rup_hbs_trigger_webhook");
+                formData.append("webhook", webhookURL);
+                formData.append("method", method);
+                formData.append("debug", debugEnabled ? "true" : "false");
+                formData.append("email", email);
+                
+                Object.keys(extraParams).forEach(key => {
+                    formData.append(`extra_params[${key}]`, extraParams[key]);
+                });
+                
+                let headersJson = JSON.stringify(headers);
+                formData.append("headers", headersJson);
+
+                if (debugEnabled) {
+                    console.log("Sending Webhook Request:", Object.fromEntries(formData.entries()));
+                }
+
+                fetch("<?php echo esc_url(admin_url('admin-ajax.php')); ?>", {
+                    method: "POST",
+                    body: formData,
+                })
+                .then(response => response.json().catch(() => ({ success: false, message: "Invalid JSON Response" })))
+                .then(data => {
+                    if (debugEnabled) console.log("Webhook Response:", data);
+                    if (!data.success) {
+                        console.error("Webhook Failed:", data.message || "Unknown error");
+                    }
+                })
+                .catch(error => {
+                    if (debugEnabled) console.error("Fetch Error:", error);
+                });
+            }, delay);
+        });
+    });
+    </script>
+    <?php
+    return ob_get_clean();
+}
+add_shortcode('rup_webhook_click', 'rup_hbs_webhook_click_shortcode');
