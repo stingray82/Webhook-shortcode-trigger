@@ -218,8 +218,6 @@ function rup_hbs_webhook_button_shortcode($atts) {
         // Explicitly set blank email, allow it
     } elseif ($atts['email'] === 'isstored:emailhidden') {
         // Keep isstored:emailhidden for processing
-    } else {
-        // Use the provided email (e.g., hello@email.com)
     }
 
     // If email is required but missing, return an error message
@@ -228,7 +226,7 @@ function rup_hbs_webhook_button_shortcode($atts) {
     }
 
     // Define protected fields
-    $protected_fields = ['webhook', 'email', 'testing']; 
+    $protected_fields = ['webhook', 'email', 'testing'];
 
     // Ensure protected values remain placeholders (`isstored:`)
     foreach ($protected_fields as $field) {
@@ -256,24 +254,28 @@ function rup_hbs_webhook_button_shortcode($atts) {
     $headers = [];
 
     foreach ($atts as $key => $value) {
-    if (strpos($key, 'header') === 0) {
-        $header_parts = explode(': ', $value, 2);
-        if (count($header_parts) === 2) {
-            $key_name = trim($header_parts[0]);
-            $header_value = trim($header_parts[1]);
+        if (strpos($key, 'header') === 0) {
+            $header_parts = explode(': ', $value, 2);
+            if (count($header_parts) === 2) {
+                $key_name = trim($header_parts[0]);
+                $header_value = trim($header_parts[1]);
 
-            // Keep hardcoded headers unchanged and only resolve stored values
-            if (strpos($header_value, 'isstored:') === 0) {
-                $headers[$key_name] = $header_value; // Use stored reference as-is
-            } else {
-                $headers[$key_name] = $header_value; // Keep hardcoded headers unchanged
+                // Keep hardcoded headers unchanged and only resolve stored values
+                if (strpos($header_value, 'isstored:') === 0) {
+                    $headers[$key_name] = $header_value; // Use stored reference as-is
+                } else {
+                    $headers[$key_name] = $header_value; // Keep hardcoded headers unchanged
+                }
             }
+        } elseif (!in_array($key, ['text', 'after_text', 'webhook', 'email', 'class', 'rup-webhook-debug', 'capture-browser', 'capture-url', 'noemail', 'method', 'delay', 'redirect'])) {
+            $extra_params[$key] = (in_array($key, $protected_fields) && strpos($value, 'isstored:') !== 0) ? 'isstored:' . $value : $value;
         }
-    } elseif (!in_array($key, ['text', 'after_text', 'webhook', 'email', 'class', 'rup-webhook-debug', 'capture-browser', 'capture-url', 'noemail', 'method', 'delay', 'redirect'])) {
-        $extra_params[$key] = (in_array($key, $protected_fields) && strpos($value, 'isstored:') !== 0) ? 'isstored:' . $value : $value;
     }
-}
 
+    // Ensure browser and URL data are always included
+    if ($capture_browser || $capture_url !== 'none') {
+        $extra_params['__browser_data__'] = true; // Placeholder to ensure object is always populated
+    }
 
     // Encode JSON safely for use in data attributes
     $extra_params_json = htmlspecialchars(json_encode($extra_params), ENT_QUOTES, 'UTF-8');
@@ -332,6 +334,11 @@ function rup_hbs_webhook_button_shortcode($atts) {
                 console.error("Error parsing headers JSON:", e);
             }
 
+            // Ensure extraParams always exists (even if no parameters are set)
+            if (Object.keys(extraParams).length === 0) {
+                extraParams.__always_send__ = true; // Ensures payload isn't empty
+            }
+
             if (captureBrowser) {
                 extraParams.userAgent = navigator.userAgent;
                 extraParams.language = navigator.language;
@@ -365,21 +372,6 @@ function rup_hbs_webhook_button_shortcode($atts) {
                 fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>', {
                     method: 'POST',
                     body: formData,
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        button.innerText = afterText;
-                        responseMsg.style.display = 'none';
-                        if (redirectURL) window.location.href = redirectURL;
-                    } else {
-                        responseMsg.innerText = 'Error: ' + (data.message || 'Unknown error.');
-                        responseMsg.style.display = 'block';
-                    }
-                })
-                .catch(error => {
-                    responseMsg.innerText = 'Error: Could not send request.';
-                    responseMsg.style.display = 'block';
                 });
             }, delay);
         });
@@ -388,6 +380,7 @@ function rup_hbs_webhook_button_shortcode($atts) {
     <?php
     return ob_get_clean();
 }
+
 
 
 // ======================================
@@ -718,12 +711,6 @@ function rup_hbs_auto_webhook_shortcode($atts) {
 
 add_shortcode('rup_auto_webhook', 'rup_hbs_auto_webhook_shortcode');
 
-
-
-
-
-
-
 // ======================================
 // On click Element Trigger - Shortcode
 // ======================================
@@ -731,132 +718,134 @@ add_shortcode('rup_auto_webhook', 'rup_hbs_auto_webhook_shortcode');
 function rup_hbs_webhook_click_shortcode($atts) {
     $debug_enabled = isset($atts['rup-webhook-debug']) && $atts['rup-webhook-debug'] === 'true';
 
-    // Load stored settings
-    $stored_settings = get_option('rup_webhook_stored_settings', []);
+    // Generate a nonce for security
+    $nonce = wp_create_nonce('rup_hbs_secure_nonce');
 
-    // Resolve the webhook URL
-    $webhook_url = resolve_stored_value($atts['webhook'] ?? '', $stored_settings, $debug_enabled);
+    // Capture only reference keys, avoiding stored secrets
+    $secure_data = [
+        'webhook'         => $atts['webhook'] ?? '',
+        'email'           => $atts['email'] ?? '',
+        'method'          => strtoupper($atts['method'] ?? 'POST'),
+        'extra_params'    => array_diff_key($atts, array_flip([
+            'webhook', 'email', 'element_id', 'class', 'rup-webhook-debug', 
+            'capture-browser', 'capture-url', 'method', 'delay', 'redirect', 'noemail'
+        ])),
+        'headers'         => array_filter($atts, fn($key) => strpos($key, 'header') === 0, ARRAY_FILTER_USE_KEY),
+        'delay'           => intval($atts['delay'] ?? 0),
+        'redirect'        => esc_url($atts['redirect'] ?? ''),
+        'capture_browser' => isset($atts['capture-browser']) && $atts['capture-browser'] === 'true',
+        'capture_url'     => esc_attr($atts['capture-url'] ?? 'none'),
+        'noemail'         => isset($atts['noemail']) && $atts['noemail'] === 'true',
+    ];
 
-    if ($debug_enabled) {
-        error_log("Webhook Click Shortcode - Raw Webhook Value: " . print_r($atts['webhook'], true));
-        error_log("Webhook Click Shortcode - Resolved Webhook URL: " . print_r($webhook_url, true));
-    }
-
-    if (empty($webhook_url)) {
-        return '<p style="color: red;">Webhook URL is invalid or missing!</p>';
-    }
-
-    // Process extra parameters and headers correctly
-    $extra_params = [];
-    $headers = [];
-    $email = '';
-
-    foreach ($atts as $key => $value) {
-        if (strpos($key, 'header') === 0) {
-            // Extract and resolve headers
-            $header_value = resolve_stored_value($value, $stored_settings, $debug_enabled);
-            $header_parts = explode(':', $header_value, 2);
-            if (count($header_parts) === 2) {
-                $headers[trim($header_parts[0])] = trim($header_parts[1]);
-            } else {
-                error_log("Invalid header format for $key: $value");
-            }
-        } elseif ($key === 'noemail' && $value === 'true') {
-            $email = ''; // Ensure blank email
-        } elseif ($key === 'email') {
-            $email = resolve_stored_value($value, $stored_settings, $debug_enabled);
-        } elseif (!in_array($key, ['webhook', 'element_id', 'class', 'rup-webhook-debug', 'capture-browser', 'capture-url', 'method', 'delay'])) {
-            $extra_params[$key] = resolve_stored_value($value, $stored_settings, $debug_enabled);
-        }
-    }
-
-    // If email is still empty and user is logged in, use their email
-    if ($email === '' && !isset($atts['noemail']) && is_user_logged_in()) {
-        $email = wp_get_current_user()->user_email;
+    // Ensure an element ID is provided
+    $element_id = esc_attr($atts['element_id'] ?? '');
+    if (empty($element_id)) {
+        return '<p style="color: red;">Error: Missing `element_id` for the webhook trigger.</p>';
     }
 
     ob_start();
     ?>
     <script>
     document.addEventListener('DOMContentLoaded', function () {
-        let element = document.getElementById("<?php echo esc_js($atts['element_id']); ?>");
+        let element = document.getElementById("<?php echo esc_js($element_id); ?>");
         if (!element) {
             <?php if ($debug_enabled) : ?>
-                console.error("Element ID '<?php echo esc_js($atts['element_id']); ?>' not found.");
+                console.error("Element ID '<?php echo esc_js($element_id); ?>' not found.");
             <?php endif; ?>
             return;
         }
 
         element.addEventListener("click", function(event) {
             event.preventDefault();
-            let webhookURL = "<?php echo esc_url($webhook_url); ?>";
-            let debugEnabled = <?php echo json_encode($debug_enabled); ?>;
-            let captureBrowser = <?php echo json_encode(isset($atts['capture-browser']) && $atts['capture-browser'] === 'true'); ?>;
-            let captureURL = <?php echo json_encode($atts['capture-url'] ?? 'none'); ?>;
-            let method = <?php echo json_encode(strtoupper($atts['method'] ?? 'POST')); ?>;
-            let delay = <?php echo intval($atts['delay'] ?? 0); ?>;
-            let extraParams = <?php echo json_encode($extra_params, JSON_UNESCAPED_SLASHES); ?>;
-            let headers = <?php echo json_encode($headers, JSON_UNESCAPED_SLASHES); ?>;
-            let email = "<?php echo esc_js($email); ?>";
 
-            if (captureBrowser) {
-                extraParams['userAgent'] = navigator.userAgent;
-                extraParams['language'] = navigator.language;
-                extraParams['screenWidth'] = window.screen.width;
-                extraParams['screenHeight'] = window.screen.height;
-                extraParams['viewportWidth'] = window.innerWidth;
-                extraParams['viewportHeight'] = window.innerHeight;
-                extraParams['platform'] = navigator.platform;
+            let formData = new FormData();
+            formData.append("action", "rup_hbs_trigger_webhook");
+            formData.append("nonce", "<?php echo esc_js($nonce); ?>");
+
+            let secureData = <?php echo json_encode($secure_data, JSON_UNESCAPED_SLASHES); ?>;
+            
+            let headers = {};
+            let extraParams = { ...secureData.extra_params };
+
+            // Separate headers from extraParams and ensure they are properly formatted
+            Object.keys(extraParams).forEach(key => {
+                if (key.startsWith("header")) {
+                    let headerParts = extraParams[key].split(": ");
+                    if (headerParts.length === 2) {
+                        headers[headerParts[0].trim()] = headerParts[1].trim();
+                    }
+                    delete extraParams[key]; // Remove from extra_params
+                }
+            });
+
+            // Ensure headers remain in the correct format for the webhook callback
+            let formattedHeaders = {};
+            Object.keys(headers).forEach(key => {
+                formattedHeaders[key] = headers[key]; // Keep as-is for `isstored:` resolution
+            });
+
+            // Handle email formatting exactly as the callback expects
+            let emailValue = secureData.noemail ? "isstored:" : secureData.email;
+            formData.append("email", emailValue);
+
+            // Capture browser details
+            if (secureData.capture_browser) {
+                extraParams["browser_userAgent"] = navigator.userAgent;
+                extraParams["browser_language"] = navigator.language;
+                extraParams["browser_screenWidth"] = window.screen.width;
+                extraParams["browser_screenHeight"] = window.screen.height;
+                extraParams["browser_viewportWidth"] = window.innerWidth;
+                extraParams["browser_viewportHeight"] = window.innerHeight;
+                extraParams["browser_platform"] = navigator.platform;
             }
 
-            if (captureURL === "individual" || captureURL === "both") {
+            // Capture URL parameters
+            if (secureData.capture_url === "individual" || secureData.capture_url === "both") {
                 let urlParams = new URLSearchParams(window.location.search);
                 urlParams.forEach((value, key) => {
-                    extraParams["url_" + key] = value;
+                    extraParams[`url_${key}`] = value;
                 });
             }
-            if (captureURL === "full" || captureURL === "both") {
-                extraParams['pageURL'] = window.location.href;
+            if (secureData.capture_url === "full" || secureData.capture_url === "both") {
+                extraParams["full_pageURL"] = window.location.href;
             }
 
-            setTimeout(() => {
-                let formData = new FormData();
-                formData.append("action", "rup_hbs_trigger_webhook");
-                formData.append("webhook", webhookURL);
-                formData.append("method", method);
-                formData.append("debug", debugEnabled ? "true" : "false");
-                formData.append("email", email);
-                
-                Object.keys(extraParams).forEach(key => {
-                    formData.append(`extra_params[${key}]`, extraParams[key]);
-                });
-                
-                let headersJson = JSON.stringify(headers);
-                formData.append("headers", headersJson);
+            // Convert `extra_params` and `headers` to JSON strings before sending
+            formData.append("extra_params", JSON.stringify(extraParams));
+            formData.append("headers", JSON.stringify(formattedHeaders));
 
-                if (debugEnabled) {
-                    console.log("Sending Webhook Request:", Object.fromEntries(formData.entries()));
+            // Send all other values separately
+            Object.keys(secureData).forEach(key => {
+                if (!["extra_params", "headers", "email"].includes(key)) {
+                    formData.append(key, secureData[key]);
                 }
-
-                fetch("<?php echo esc_url(admin_url('admin-ajax.php')); ?>", {
-                    method: "POST",
-                    body: formData,
-                })
-                .then(response => response.json().catch(() => ({ success: false, message: "Invalid JSON Response" })))
-                .then(data => {
-                    if (debugEnabled) console.log("Webhook Response:", data);
-                    if (!data.success) {
-                        console.error("Webhook Failed:", data.message || "Unknown error");
-                    }
-                })
-                .catch(error => {
-                    if (debugEnabled) console.error("Fetch Error:", error);
-                })
-                .finally(() => {
-                // Immediately navigate to the link after webhook request finishes
-                window.location.href = element.href;
             });
-            }, delay);
+
+            fetch("<?php echo esc_url(admin_url('admin-ajax.php')); ?>", {
+                method: "POST",
+                body: formData,
+            })
+            .then(response => response.json().catch(() => ({ success: false, message: "Invalid JSON Response" })))
+            .then(data => {
+                if (data.success) {
+                    console.log("Webhook Sent Successfully:", data);
+                } else {
+                    console.error("Webhook Failed:", data.message || "Unknown error");
+                }
+            })
+            .catch(error => {
+                console.error("Fetch Error:", error);
+            })
+            .finally(() => {
+                // Redirect after webhook request finishes
+                let redirectURL = secureData.redirect;
+                if (redirectURL) {
+                    window.location.href = redirectURL;
+                } else {
+                    window.location.href = element.href;
+                }
+            });
         });
     });
     </script>
@@ -864,8 +853,3 @@ function rup_hbs_webhook_click_shortcode($atts) {
     return ob_get_clean();
 }
 add_shortcode('rup_webhook_click', 'rup_hbs_webhook_click_shortcode');
-
-
-
-
-
