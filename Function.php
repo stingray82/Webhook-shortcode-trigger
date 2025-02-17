@@ -258,13 +258,13 @@ function rup_hbs_webhook_button_shortcode($atts) {
             $header_parts = explode(': ', $value, 2);
             if (count($header_parts) === 2) {
                 $key_name = trim($header_parts[0]);
-                $header_value = trim($header_parts[1]);
+                $key_value = trim($header_parts[1]);
 
                 // Keep hardcoded headers unchanged and only resolve stored values
-                if (strpos($header_value, 'isstored:') === 0) {
-                    $headers[$key_name] = $header_value; // Use stored reference as-is
+                if (strpos($key_value, 'isstored:') === 0) {
+                    $headers[$key_name] = $key_value; // Use stored reference as-is
                 } else {
-                    $headers[$key_name] = $header_value; // Keep hardcoded headers unchanged
+                    $headers[$key_name] = $key_value;
                 }
             }
         } elseif (!in_array($key, ['text', 'after_text', 'webhook', 'email', 'class', 'rup-webhook-debug', 'capture-browser', 'capture-url', 'noemail', 'method', 'delay', 'redirect'])) {
@@ -334,9 +334,8 @@ function rup_hbs_webhook_button_shortcode($atts) {
                 console.error("Error parsing headers JSON:", e);
             }
 
-            // Ensure extraParams always exists (even if no parameters are set)
             if (Object.keys(extraParams).length === 0) {
-                extraParams.__always_send__ = true; // Ensures payload isn't empty
+                extraParams.__always_send__ = true;
             }
 
             if (captureBrowser) {
@@ -372,6 +371,20 @@ function rup_hbs_webhook_button_shortcode($atts) {
                 fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>', {
                     method: 'POST',
                     body: formData,
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        button.innerText = afterText;
+                        if (redirectURL) window.location.href = redirectURL;
+                    } else {
+                        responseMsg.innerText = 'Error: ' + (data.message || 'Unknown error.');
+                        responseMsg.style.display = 'block';
+                    }
+                })
+                .catch(error => {
+                    responseMsg.innerText = 'Error: Could not send request.';
+                    responseMsg.style.display = 'block';
                 });
             }, delay);
         });
@@ -380,6 +393,7 @@ function rup_hbs_webhook_button_shortcode($atts) {
     <?php
     return ob_get_clean();
 }
+
 
 
 
