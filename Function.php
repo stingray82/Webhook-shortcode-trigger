@@ -851,7 +851,11 @@ function rup_hbs_webhook_click_shortcode($atts) {
                 })
                 .catch(error => {
                     if (debugEnabled) console.error("Fetch Error:", error);
-                });
+                })
+                .finally(() => {
+                // Immediately navigate to the link after webhook request finishes
+                window.location.href = element.href;
+            });
             }, delay);
         });
     });
