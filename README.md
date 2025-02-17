@@ -114,10 +114,10 @@ Shortcode Format
 | `email`             | Overrides the logged-in user's email. If not provided, the logged-in user's email is used. (Default is logged in user) *if using on a from without a logged in user you will get a warning so either conditionally display or set to noemail accepts email =”x\@x.com” rather than logged in user too.* |
 | `class`             | Allows custom CSS styling by specifying a class name.                                                                                                                                                                                                                                                   |
 | `rup-webhook-debug` | Set to `true` to enable debugging logs in `wp-content/debug.log`.                                                                                                                                                                                                                                       |
-| `noemail`           | Set to `true` to allow webhook triggering **without requiring an email**. it still sends email but it will be “blank” at the receving end for those circumstances where no email is needed                                                                                                              |
+| `noemail`           | Set to `true` to allow webhook triggering **without requiring an email**. it still sends email but it will be “blank” at the receiving end for those circumstances where no email is needed, this allows you to set a blank email=””                                                                    |
 | `paramX`            | Additional parameters (`param1`, `param2`, etc.) sent to the webhook as JSON.                                                                                                                                                                                                                           |
-| `capture-url`       | Controls how URL parameters are sent: `individual` (each parameter as its own key-value pair), `full` (entire URL as `pageURL`), or `both` (sends both `individual` parameters and `pageURL`).                                                                                                          |
-| `capture-browser`   | Set to `true` to include browser details such as user agent, screen size, platform, and language in the webhook payload.                                                                                                                                                                                |
+| `capture-url`       | Controls how URL parameters are sent: `individual` (each parameter as its own key-value pair), `full` (entire URL as `pageURL`), or `both` (sends both `individual` parameters and `pageURL`). **Note: Requires at least one empty parameter to be set i.e blank=””**                                   |
+| `capture-browser`   | Set to `true` to include browser details such as user agent, screen size, platform, and language in the webhook payload. -** Note: Requires at least one empty parameter to be set i.e blank=””**                                                                                                       |
 | `method`            | Defines the HTTP method for the webhook request (`POST`, `GET`, `PUT`, or `DELETE`). Defaults to `POST`.                                                                                                                                                                                                |
 | `headerX`           | Custom headers for the webhook request (e.g., `header1="Authorization: Bearer XYZ123"`).                                                                                                                                                                                                                |
 | `delay`             | Sets a delay (in milliseconds) before sending the webhook request. Default is `0` (no delay).                                                                                                                                                                                                           |
@@ -184,8 +184,10 @@ Admin Settings Page
 
 -   Bulk **import/export** of stored settings in JSON format is available.
 
-
-
 Security
--------------------
-I've hidden the isstored tokens from the front end code this doesn't mean they can't be found by sniffing the headers or the Javascript using browser tools, as with all tokens that are send using the browser there is a chance they will be exposed Please keep this in mind
+--------
+
+I've hidden the isstored tokens from the front end code this doesn't mean they
+can't be found by sniffing the headers or the Javascript using browser tools, as
+with all tokens that are send using the browser there is a chance they will be
+exposed Please keep this in mind
